@@ -1,74 +1,75 @@
 from openai import OpenAI
+import json
 
+"""
+<system prompt>
+<config A>
+<config A result>
+
+<config B>
+<config B result>
+
+<instruction>
+"""
+
+
+"""
+You are a 10x engineer, specifically an expert ML engineer. We are optimizing a model on CIFAR10. Think carefully about hyperparameter selection.
+
+Training run 1: {
+    config: {
+        "GPUs": 10,
+        "RAM": 128,
+        "Storage": 12,
+        "Bandwidth": "AdamW"
+    },
+    metrics: {
+        requests: {
+            1000000
+        },
+        uploads: {
+            100
+        }
+    }
+}
+
+
+"""
+
+
+"""
+TODO:
+* Support Mistral medium
+* Support Ollama
+"""
 
 class Conductor:
-    def __init__(self, api_key, system_prompt, model="gpt-"):
+    def __init__(self, api_key, system_prompt, model="gpt-3.5-turbo"):
         """
-        Expand this into configurations to support Mistral, OpenAI, Gemini, Nous-Hermes
-        
-        
+
         """
         self.client = OpenAI(api_key=api_key)
+        self.model = model
         self.system_prompt = system_prompt
-        self.variables = {}
-        self.state = {}
+        self.logs = []
 
-    def register(self, name, update_function, starting_value, value_range=None):
-        """
-        Registers a variable with its update function and value range.
+    def log(self, status):
+        self.logs.append(status)
 
-        :param name: The name of the variable.
-        :param update_function: A function that takes the current value and returns an updated value.
-        :param value_range: The permissible range or set of values for the variable.
-        """
-        self.variables[name] = {'update_function': update_function, 'value': starting_value, 'value_range': value_range}
-
-    def log(self, state_dict):
-        """
-        Updates the internal state of the system based on the provided dictionary.
-
-        :param state_dict: A dictionary containing key-value pairs of system state indicators.
-        """
-        self.state.update(state_dict)
-
-    def update(self):
-        """
-        Uses the OpenAI client to suggest new values for registered variables.
-        Returns suggestions as JSON and updates the values.
-        """
-        response = self.client.Completion.create(
-            engine="davinci",
-            prompt=self._generate_prompt(),
-            max_tokens=100
-        )
-        suggestions = self._parse_response(response)
-        self._apply_suggestions(suggestions)
-
-    def _generate_prompt(self):
-        """
-        Generates a prompt for the LLM based on the current state and system description.
-        """
+    def instruct(self, instruction):
         prompt = self.system_prompt
-        for name, value in self.state.items():
-            prompt += f"\n{name}: {value}"
-        prompt += "\nSuggested adjustments:"
-        return prompt
-
-    def _parse_response(self, response):
-        """
-        Parses the LLM response and extracts variable adjustments.
-        """
-        # Implementation depends on the response format
-        # ...
-
-    def _apply_suggestions(self, suggestions):
-        """
-        Applies the suggested adjustments to the variables.
-        """
-        for name, suggested_value in suggestions.items():
-            if name in self.variables:
-                value_range = self.variables[name]['value_range']
-                if suggested_value in value_range:
-                    self.state[name] = suggested_value
-                else:
-                    print(f"Suggested value for {name} is out of range.")
+        for log in self.logs:
+            prompt += str(log)
+        prompt += instruction
+        chat_completion = self.client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            model=self.model,
+        )
+        content = chat_completion.choices[0].message.content
+        dictionary = json.loads(content)
+        return dictionary
