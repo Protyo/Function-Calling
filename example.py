@@ -5,10 +5,10 @@ from pprint import pprint
 load_dotenv()  # take environment variables from .env.
 
 import os
-api_key = os.environ.get("MISTRAL_API_KEY")
+api_key = os.environ.get("OPENAI_API_KEY")
 
 system_prompt = "Act as an expert ML engineer. You are training a RESNET50 model on CIFAR-10."
-conductor = Conductor(api_key=api_key, system_prompt=system_prompt, backend="mistral", model="mistral-medium")
+conductor = Conductor(api_key=api_key, system_prompt=system_prompt, backend="openai", model="gpt-3.5-turbo")
 
 
 # CIFAR-10 training using a vanilla RESNET
@@ -74,9 +74,10 @@ if __name__ == '__main__':
         "momentum": 0.9
     }
 
-    
-
-    for hyperparameter_run in range(10): # FLAG: conductor injection
+    for hyperparameter_run in range(10): 
+        print("BEGIN TRAINING")
+        print("Configuration:")
+        pprint(hyperparameters)
         criterion = nn.CrossEntropyLoss()
         net = Net().to(device)
         optimizer = optim.SGD(net.parameters(), lr=hyperparameters["learning_rate"], momentum=hyperparameters["momentum"])

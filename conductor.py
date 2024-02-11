@@ -2,36 +2,45 @@ from openai import OpenAI
 from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 import json
+import ollama
 
 
-"""
-TODO:
-* Support Ollama
-"""
-
-
-def convert_openai(messages):
-    return messages
+def identity(x):
+    return x
 
 def convert_mistral(messages):
     return [ChatMessage(role=m["role"], content=m["content"]) for m in messages]
 
+def parse_ollama(response):
+    return response['message']['content']
+
+def parse_openai(response):
+    return response.choices[0].message.content
 
 backends = {
-    "openai": OpenAI,
-    "mistral": MistralClient
+    "openai": lambda x: OpenAI(api_key=x),
+    "mistral": lambda x: MistralClient(api_key=x),
+    "ollama": lambda x: ollama
 }
 
-
 converters = {
-    "openai": convert_openai,
-    "mistral": convert_mistral
+    "openai": identity,
+    "mistral": convert_mistral,
+    "ollama": identity
 }
 
 chats = {
     "openai": lambda x: x.chat.completions.create,
-    "mistral": lambda x: x.chat
+    "mistral": lambda x: x.chat,
+    "ollama": lambda x: x.chat
 }
+
+parsers = {
+    "openai": parse_openai,
+    "mistral": parse_openai,
+    "ollama": parse_ollama
+}
+
 
 class Conductor:
     def __init__(self, api_key, system_prompt, model="gpt-3.5-turbo", backend="openai"):
@@ -39,7 +48,7 @@ class Conductor:
 
         """
         
-        self.client = backends[backend](api_key=api_key)
+        self.client = backends[backend](api_key)
         self.model = model
         self.backend = backend
         self.system_prompt = system_prompt
@@ -60,7 +69,7 @@ class Conductor:
                 "content": prompt,
             }
         ]
-        messages = converters[self.backend](messages=messages)
+        messages = converters[self.backend](messages)
         response = self._generate(messages)
         dictionary = json.loads(response)
         return dictionary
@@ -70,5 +79,5 @@ class Conductor:
             model=self.model,
             messages=messages,
         )
-        content = chat_response.choices[0].message.content
+        content = parsers[self.backend](chat_response)
         return content
