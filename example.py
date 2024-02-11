@@ -22,6 +22,11 @@ if __name__ == '__main__':
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
     batch_size = 4
+    device = "cpu"
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
 
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                             download=True, transform=transform)
@@ -61,9 +66,6 @@ if __name__ == '__main__':
             return x
 
 
-    net = Net()
-
-
     import torch.optim as optim
 
     # Hyperparameters
@@ -72,14 +74,19 @@ if __name__ == '__main__':
         "momentum": 0.9
     }
 
+    
+
     for hyperparameter_run in range(10): # FLAG: conductor injection
         criterion = nn.CrossEntropyLoss()
+        net = Net().to(device)
         optimizer = optim.SGD(net.parameters(), lr=hyperparameters["learning_rate"], momentum=hyperparameters["momentum"])
         for epoch in range(2):  # loop over the dataset multiple times
             running_loss = 0.0
             for i, data in enumerate(trainloader, 0):
                 # get the inputs; data is a list of [inputs, labels]
                 inputs, labels = data
+                inputs = inputs.to(device)
+                labels = labels.to(device)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -102,6 +109,8 @@ if __name__ == '__main__':
         with torch.no_grad():
             for data in testloader:
                 images, labels = data
+                images = images.to(device)
+                labels = labels.to(device)
                 # calculate outputs by running images through the network
                 outputs = net(images)
                 # the class with the highest energy is what we choose as prediction
@@ -116,7 +125,9 @@ if __name__ == '__main__':
                 "test_accuracy": test_accuracy
             }
         })
-        hyperparameters = conductor.instruct(instruction="Based on the training history, suggest new hyperparameter values. Respond in JSON.")["hyperparameters"]
+        response = conductor.instruct(instruction="Based on the training history, suggest new hyperparameter values. Respond in JSON.")
+        pprint(response)
+        hyperparameters = response["hyperparameters"]
         pprint(hyperparameters)
 
     print('Finished Training')
