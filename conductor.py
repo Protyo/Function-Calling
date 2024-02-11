@@ -1,55 +1,47 @@
 from openai import OpenAI
+from mistralai.client import MistralClient
+from mistralai.models.chat_completion import ChatMessage
 import json
-
-"""
-<system prompt>
-<config A>
-<config A result>
-
-<config B>
-<config B result>
-
-<instruction>
-"""
-
-
-"""
-You are a 10x engineer, specifically an expert ML engineer. We are optimizing a model on CIFAR10. Think carefully about hyperparameter selection.
-
-Training run 1: {
-    config: {
-        "GPUs": 10,
-        "RAM": 128,
-        "Storage": 12,
-        "Bandwidth": "AdamW"
-    },
-    metrics: {
-        requests: {
-            1000000
-        },
-        uploads: {
-            100
-        }
-    }
-}
-
-
-"""
 
 
 """
 TODO:
-* Support Mistral medium
 * Support Ollama
 """
 
+
+def convert_openai(messages):
+    return messages
+
+def convert_mistral(messages):
+    return [ChatMessage(role=m["role"], content=m["content"]) for m in messages]
+
+
+backends = {
+    "openai": OpenAI,
+    "mistral": MistralClient
+}
+
+
+converters = {
+    "openai": convert_openai,
+    "mistral": convert_mistral
+}
+
+chats = {
+    "openai": lambda x: x.chat.completions.create,
+    "mistral": lambda x: x.chat
+}
+
 class Conductor:
-    def __init__(self, api_key, system_prompt, model="gpt-3.5-turbo"):
+    def __init__(self, api_key, system_prompt, model="gpt-3.5-turbo", backend="openai"):
         """
 
         """
-        self.client = OpenAI(api_key=api_key)
+        
+        self.client = backends[backend](api_key=api_key)
         self.model = model
+        self.backend = backend
         self.system_prompt = system_prompt
         self.logs = []
 
@@ -61,15 +53,22 @@ class Conductor:
         for log in self.logs:
             prompt += str(log)
         prompt += instruction
-        chat_completion = self.client.chat.completions.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-            model=self.model,
-        )
-        content = chat_completion.choices[0].message.content
-        dictionary = json.loads(content)
+
+        messages = [
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ]
+        messages = converters[self.backend](messages=messages)
+        response = self._generate(messages)
+        dictionary = json.loads(response)
         return dictionary
+
+    def _generate(self, messages):
+        chat_response = chats[self.backend](self.client)(
+            model=self.model,
+            messages=messages,
+        )
+        content = chat_response.choices[0].message.content
+        return content

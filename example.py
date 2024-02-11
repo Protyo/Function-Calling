@@ -5,10 +5,10 @@ from pprint import pprint
 load_dotenv()  # take environment variables from .env.
 
 import os
-api_key = os.environ.get("OPENAI_API_KEY")
+api_key = os.environ.get("MISTRAL_API_KEY")
 
 system_prompt = "Act as an expert ML engineer. You are training a RESNET50 model on CIFAR-10."
-conductor = Conductor(api_key=api_key, system_prompt=system_prompt)
+conductor = Conductor(api_key=api_key, system_prompt=system_prompt, backend="mistral", model="mistral-medium")
 
 
 # CIFAR-10 training using a vanilla RESNET
@@ -80,7 +80,7 @@ if __name__ == '__main__':
         criterion = nn.CrossEntropyLoss()
         net = Net().to(device)
         optimizer = optim.SGD(net.parameters(), lr=hyperparameters["learning_rate"], momentum=hyperparameters["momentum"])
-        for epoch in range(2):  # loop over the dataset multiple times
+        for epoch in range(1):  # loop over the dataset multiple times
             running_loss = 0.0
             for i, data in enumerate(trainloader, 0):
                 # get the inputs; data is a list of [inputs, labels]
@@ -125,9 +125,8 @@ if __name__ == '__main__':
                 "test_accuracy": test_accuracy
             }
         })
-        response = conductor.instruct(instruction="Based on the training history, suggest new hyperparameter values. Respond in JSON.")
-        pprint(response)
+        response = conductor.instruct(instruction="Based on the training history, suggest new hyperparameter values. \
+                                      Respond in JSON with a key for \"hyperparameters\" that only contains the given \
+                                      parameters in the history, mapped to the new values you suggest. Don't repeat \
+                                      configurations that have previously been tested. Respond only with JSON.")
         hyperparameters = response["hyperparameters"]
-        pprint(hyperparameters)
-
-    print('Finished Training')
