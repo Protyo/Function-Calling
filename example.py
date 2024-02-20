@@ -1,7 +1,7 @@
-from dotenv import load_dotenv
 from conductor import Conductor
 from pprint import pprint
 
+from dotenv import load_dotenv
 load_dotenv()  # take environment variables from .env.
 
 import os
